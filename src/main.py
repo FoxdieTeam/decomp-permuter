@@ -9,6 +9,7 @@ import re
 import sys
 import threading
 import time
+from shutil import which
 
 from typing import Callable, Dict, Iterable, Iterator, List, Mapping, Optional, Tuple
 
@@ -96,6 +97,7 @@ class EvalContext:
     printer: Printer = field(default_factory=Printer)
     iteration: int = 0
     errors: int = 0
+    start_time: int = time.time()
     overall_profiler: Profiler = field(default_factory=Profiler)
     permuters: List[Permuter] = field(default_factory=list)
 
@@ -169,7 +171,9 @@ def post_score(
     timings = ""
     if context.options.show_timings:
         timings = "  \t" + context.overall_profiler.get_str_stats()
-    status_line = f"iteration {context.iteration}, {context.errors} errors, score = {disp_score}{timings}"
+    elapsed = time.time() - context.start_time
+    iters_per_sec = context.iteration / elapsed
+    status_line = f"iteration {context.iteration} {iters_per_sec:.2f}/sec, {context.errors} errors, score = {disp_score}{timings}"
 
     if permuter.should_output(result):
         former_best = permuter.best_score
@@ -286,7 +290,8 @@ def run_inner(options: Options, heartbeat: Callable[[], None]) -> List[int]:
     name_counts: Dict[str, int] = {}
     for i, d in enumerate(options.directories):
         heartbeat()
-        compile_cmd = os.path.join(d, "compile.sh")
+        script = "compile.bat" if os.name == "nt" else "compile.sh"
+        compile_cmd = os.path.join(d, script)
         target_o = os.path.join(d, "target.o")
         base_c = os.path.join(d, "base.c")
         for fname in [compile_cmd, target_o, base_c]:
@@ -738,6 +743,9 @@ def main() -> None:
         no_context_output=args.no_context_output,
         debug_mode=args.debug_mode,
     )
+
+    if not which("cpp"):
+        raise Exception("`cpp` not found")
 
     run(options)
 

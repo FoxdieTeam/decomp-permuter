@@ -139,7 +139,9 @@ MIPS_SETTINGS: ArchSettings = ArchSettings(
     re_includes_sp=re.compile(r"\b(sp|s8)\b"),
     sp_ref_insns=["addiu"],
     reloc_str="R_MIPS_",
-    objdump=["mips-linux-gnu-objdump", "-drz", "-m", "mips:4300"],
+    # objdump=["mips-linux-gnu-objdump", "-drz", "-m", "mips:4300"],
+    objdump=['./tools/' + ('MDasm2.exe' if os.name == 'nt' else 'MDasm2.elf')], # psyq obj dumper
+
     branch_likely_instructions=MIPS_BRANCH_LIKELY_INSTRUCTIONS,
     branch_instructions=MIPS_BRANCH_INSTRUCTIONS,
 )
@@ -181,6 +183,8 @@ ARM32_SETTINGS: ArchSettings = ArchSettings(
 
 
 def get_arch(o_file: str) -> ArchSettings:
+    return MIPS_SETTINGS # assume psyq on this fork
+
     # https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.eheader.html
     with open(o_file, "rb") as f:
         data = f.read(20)

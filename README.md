@@ -1,3 +1,15 @@
+# PSYQ fork
+
+changes:
+- use psyq obj dumper MDasm2
+- run compile.bat on non-WSL Windows
+- show iters/sec
+- added requirements.txt
+- add check for `cpp`
+
+issues:
+- import.py probably doesn't work
+
 # Decomp permuter
 
 Automatically permutes C files to better match a target binary. The permuter has two modes of operation:
