@@ -9,11 +9,20 @@
 
 // TODO: convert to C to reduce libc++ static link size
 
-// linux:
-// g++ MDasm2.cpp -lcapstone -oMDasm2 -O3 -march=x86-64-v2 -static
+// Linux:
+// g++ MDasm2.cpp -lcapstone -oMDasm2.elf -O3 -march=x86-64-v2 -static
 
-// linux -> windows
-// x86_64-w64-mingw32-g++ MDasm2.cpp -lcapstone -lssp -oMDasm2.exe -O3 -march=x86-64-v2 -static
+// Windows (on Linux):
+// x86_64-w64-mingw32-g++ MDasm2.cpp -lcapstone -lssp -oMDasm2.exe -O3 -march=x86-64-v2 -static -L ~/Downloads/capstone-5.0.1 -I ~/Downloads/capstone-5.0.1/include
+
+// Compiling capstone for Linux:
+// cd ~/Downloads/capstone-5.0.1
+// CFLAGS="-O3 -march=x86-64-v2" V=1 ./make.sh
+// sudo ./make.sh install
+
+// Compiling capstone for Windows (on Linux):
+// cd ~/Downloads/capstone-5.0.1
+// CFLAGS="-O3 -march=x86-64-v2 -fno-stack-protector" V=1 ./make.sh cygwin-mingw64
 
 #define PERMUTER
 
@@ -636,10 +645,15 @@ int disassemble(BYTE *code, size_t code_size)
         return -1;
     }
 
-    const size_t count = cs_disasm(handle, (const uint8_t*)code, code_size, 0x0, 0, &insn);
-
-    if (count > 0)
+    size_t offset = 0;
+    while (code_size > 0)
     {
+        size_t count = cs_disasm(handle, (const uint8_t*)code, code_size, offset, 0, &insn);
+
+        code_size -= count * 4;
+        code += count * 4;
+        offset += count * 4;
+
         for (size_t j = 0; j < count; j++)
         {
             if (g_params.offsets)
@@ -686,10 +700,43 @@ int disassemble(BYTE *code, size_t code_size)
         }
 
         cs_free(insn, count);
-    }
-    else
-    {
-        printf("ERROR: Failed to disassemble given code!\n");
+
+        if (code_size > 0)
+        {
+            // cs_disasm did not disassemble the whole function,
+            // as there are still some bytes left.
+            // Therefore, try to parse the next instruction manually.
+
+            if (g_params.offsets)
+            {
+                printf("%4llx:\t", offset);
+            }
+
+            unsigned int instruction = *(unsigned int*)code;
+            unsigned int opcode = (instruction & 0xFE000000) >> 24;
+
+            if (g_params.bytes)
+            {
+                printf("%08X\t", instruction);
+            }
+
+            if (opcode == 0x4A)
+            {
+                // c2
+                printf("c2\t0x%x", instruction & 0x01FFFFFF);
+            }
+            else
+            {
+                // unknown
+                printf("unk\t0x%x", instruction);
+            }
+
+            code_size -= 4;
+            code += 4;
+            offset += 4;
+
+            printf("\n");
+        }
     }
 
     cs_close(&handle);
